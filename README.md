@@ -1,7 +1,7 @@
 # log-agent
 Log file detect agent with rust  
 Detecting multiple log files to send central server
----
+
 ## Features
 - Detecting Multiple Log Files
 - TOML-based Configuration
