@@ -1,7 +1,15 @@
 # log-agent
-log file detect agent with rust
+Log file detect agent with rust  
+Detecting multiple log files to send central server
+---
+## Features
+- Detecting Multiple Log Files
+- TOML-based Configuration
+- Strategy pattern for transmission 
+  - Now Support: HTTP
+  - Planned: WebSocket or else..
 
-# Configuration
+## Configuration
 config file name: `log-agent.config` 
 
 example: 
