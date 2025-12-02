@@ -4,9 +4,9 @@ use crate::config::config::global_config;
 use crate::sender::log_sender::LogSender;
 
 #[derive(Serialize)]
-struct LogBody<'a> {
-    name: &'a str,
-    data: &'a str,
+struct LogBody {
+    name: String,
+    data: String,
 }
 
 pub struct HttpSenderStrategy {
@@ -22,7 +22,10 @@ impl HttpSenderStrategy {
 
 impl LogSender for HttpSenderStrategy {
     fn send(&self, name: &str, data: &str) {
-        let body = LogBody{ name, data };
+        let body = LogBody{
+            name: name.to_string(),
+            data: data.to_string()
+        };
 
         match self.client
             .post(&global_config().end_point)
