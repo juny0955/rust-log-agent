@@ -1,6 +1,6 @@
 use crate::config::config::load_config;
 use crate::sender::log_sender::build_sender;
-use crate::watcher::Watcher;
+use crate::watcher::watcher::Watcher;
 use std::sync::Arc;
 use std::thread;
 use std::thread::JoinHandle;
