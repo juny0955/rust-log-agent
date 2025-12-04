@@ -7,3 +7,5 @@ edition = "2024"
 reqwest = { version = "0.12.24", features = ["blocking", "json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "0.9.8"
+tracing = "0.1.43"
+tracing-subscriber = "0.3.22"
