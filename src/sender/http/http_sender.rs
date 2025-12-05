@@ -1,8 +1,8 @@
 use crate::config::config::global_config;
-use crate::sender::http::log_body::LogBody;
+use crate::sender::http::http_error::HttpError;
+use crate::sender::log_data::LogData;
 use crate::sender::log_sender::LogSender;
 use reqwest::blocking::Client;
-use reqwest::Error;
 use std::thread;
 use std::time::Duration;
 use tracing::{debug, error, warn};
@@ -21,46 +21,46 @@ impl HttpSenderStrategy {
         Self { client }
     }
 
-    fn is_retryable(error: &Error) -> bool {
-        error.is_timeout() || error.is_connect()
+    fn try_send(&self, end_point: &str, log_data: &LogData) -> Result<(), HttpError> {
+        let response = self.client
+            .post(end_point)
+            .json(log_data)
+            .send()?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            Err(response.status().into())
+        }
     }
 }
 
 impl LogSender for HttpSenderStrategy {
-    fn send(&self, name: &str, data: &str) {
-        let body = LogBody::new(name, data);
+    fn send(&self, log_data: LogData) {
         let global_config = global_config();
-        let max_retry = global_config.retry;
         let endpoint = &global_config.end_point;
+        let max_retry = global_config.retry;
+        let retry_delay = Duration::from_millis(global_config.retry_delay_ms);
 
         for attempt in 1..=max_retry {
-            let result = self.client
-                .post(endpoint)
-                .json(&body)
-                .send();
-
-
-            match result {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        debug!("{name} send success. status: {}, attempt: {attempt}/{max_retry}", response.status());
-                        return;
-                    }
-
-                    error!("{name} send failed. status: {}", response.status());
+            match self.try_send(endpoint, &log_data) {
+                Ok(()) => {
+                    debug!("{} send success. on attempt: {attempt}/{max_retry}", log_data.name);
+                    return;
                 },
-                Err(e) => {
-                    if !Self::is_retryable(&e) {
-                        error!("{name} send failed(non-retry): {e}");
+                Err(HttpError::NonRetryable(e)) => {
+                    error!("{} send failed(non-retry): {e}", log_data.name);
+                    return;
+                },
+                Err(HttpError::Retryable(e)) => {
+                    if attempt == max_retry {
+                        error!("{} send failed after {max_retry} msg: {e}", log_data.name);
                         return;
                     }
 
-                    warn!("{name} send failed: {e}, retry...{attempt}/{max_retry}");
-                }
-            }
-
-            if attempt < max_retry {
-                thread::sleep(Duration::from_millis(global_config.retry_delay_ms));
+                    warn!("{} send failed: {e}, retry...{attempt}/{max_retry}", log_data.name);
+                    thread::sleep(retry_delay);
+                },
             }
         }
     }

@@ -36,7 +36,7 @@ fn main() {
                 Ok(w) => w,
                 Err(e) => {
                     error!("Failed to build watcher: {e}");
-                    return;
+                    process::exit(1);
                 }
             };
 

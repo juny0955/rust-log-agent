@@ -1,6 +1,11 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+pub enum SendType {
+    HTTP,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct GlobalConfig {
     pub end_point: String,
     pub send_type: SendType,
@@ -14,8 +19,3 @@ pub struct GlobalConfig {
 
 fn default_retry() -> u32 { 3 }
 fn default_retry_delay_ms() -> u64 { 100 }
-
-#[derive(Debug, Deserialize)]
-pub enum SendType {
-    HTTP,
-}

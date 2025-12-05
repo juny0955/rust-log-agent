@@ -1,9 +1,11 @@
 use crate::config::config_error::ConfigError;
-use crate::config::global_config::GlobalConfig;
+use crate::config::global_config::{GlobalConfig, SendType};
 use crate::config::source_config::SourceConfig;
 use serde::Deserialize;
 use std::{fs, process};
+use std::collections::HashSet;
 use std::sync::OnceLock;
+use reqwest::Url;
 use tracing::{error, info, warn};
 
 const CONFIG_PATH: &str = "log-agent.config";
@@ -39,9 +41,7 @@ fn parse_config_from_toml(content: &str) -> Result<Config, ConfigError> {
     let config: Config = toml::from_str(&content)
         .map_err(ConfigError::CanNotParseToml)?;
 
-    if config.global.retry < 1 {
-        return Err(ConfigError::RetryIsUnderOne);
-    }
+    valid_config(&config)?;
 
     Ok(config)
 }
@@ -51,6 +51,30 @@ fn parse_config() -> Result<Config, ConfigError> {
         .map_err(ConfigError::CanNotRead)?;
 
     parse_config_from_toml(&content)
+}
+
+fn valid_config(config: &Config) -> Result<(), ConfigError> {
+    if matches!(config.global.send_type, SendType::HTTP) {
+        let url = Url::parse(&config.global.end_point)
+            .map_err(|_| ConfigError::InvalidEndPoint(config.global.end_point.clone()))?;
+
+        if url.scheme() != "http" && url.scheme() != "https" {
+            return Err(ConfigError::InvalidEndPoint(config.global.end_point.clone()))
+        }
+    }
+
+    if config.global.retry < 1 {
+        return Err(ConfigError::RetryIsUnderOne);
+    }
+
+    let mut set = HashSet::new();
+    for s in &config.sources {
+        if !set.insert(&s.name) {
+            return Err(ConfigError::DuplicateSourceName(s.name.to_string()));
+        }
+    }
+
+    Ok(())
 }
 
 fn print_config(sources: &[SourceConfig]) {
@@ -66,7 +90,9 @@ fn print_config(sources: &[SourceConfig]) {
     sources.iter().enumerate().for_each(|(i, s)| {
         info!("\t{}. {}", i+1, s.name);
         info!("\t\t* Path: {}", s.log_path);
+        info!("\t\t* Delay: {}ms", s.delay);
     });
+    info!("----------------------------------");
 }
 
 #[cfg(test)]
@@ -117,5 +143,46 @@ mod tests {
 
         let result = parse_config_from_toml(example);
         assert!(matches!(result, Err(ConfigError::CanNotParseToml(_))));
+    }
+
+    #[test]
+    fn retry_count_is_must_be_over_1() {
+        let example = r#"
+            [global]
+            end_point = "http://localhost:8080/log"
+            send_type = "HTTP"
+            retry = 0
+
+            [[sources]]
+            name = "app1"
+            log_path = "app1.log"
+
+            [[sources]]
+            name = "app1"
+            log_path = "app2.log"
+        "#;
+
+        let result = parse_config_from_toml(example);
+        assert!(matches!(result, Err(ConfigError::RetryIsUnderOne)));
+    }
+
+    #[test]
+    fn source_name_is_must_be_unique() {
+        let example = r#"
+            [global]
+            end_point = "http://localhost:8080/log"
+            send_type = "HTTP"
+
+            [[sources]]
+            name = "app1"
+            log_path = "app1.log"
+
+            [[sources]]
+            name = "app1"
+            log_path = "app2.log"
+        "#;
+
+        let result = parse_config_from_toml(example);
+        assert!(matches!(result, Err(ConfigError::DuplicateSourceName(_))));
     }
 }

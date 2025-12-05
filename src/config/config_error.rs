@@ -6,7 +6,9 @@ use std::{error, io};
 pub enum ConfigError {
     CanNotRead(io::Error),
     CanNotParseToml(toml::de::Error),
+    InvalidEndPoint(String),
     RetryIsUnderOne,
+    DuplicateSourceName(String),
 }
 impl Error for ConfigError {}
 
@@ -15,7 +17,9 @@ impl Display for ConfigError {
         match self {
             ConfigError::CanNotRead(e) => write!(f, "Failed to read config file: {}", e.to_string()),
             ConfigError::CanNotParseToml(e) => write!(f, "Failed to Parse TOML: {}", e.to_string()),
+            ConfigError::InvalidEndPoint(end_point) => write!(f, "Invalid endpoint {end_point}"),
             ConfigError::RetryIsUnderOne => write!(f, "Retry count is must over 1"),
+            ConfigError::DuplicateSourceName(name) => write!(f, "Duplicated source name in config: '{name}', source name is must be unique."),
         }
     }
 }

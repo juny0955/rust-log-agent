@@ -1,4 +1,5 @@
 use crate::config::source_config::SourceConfig;
+use crate::sender::log_data::LogData;
 use crate::sender::log_sender::LogSender;
 use crate::watcher::watch_error::WatchError;
 use crate::watcher::watch_event::WatchEvent;
@@ -8,8 +9,6 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use tracing::{info, warn};
-
-const WATCH_DELAY_MS: u64 = 500;
 
 pub struct Watcher {
     source: SourceConfig,
@@ -27,20 +26,21 @@ impl Watcher {
 
     pub fn watch(&mut self) -> Result<(), WatchError> {
         info!("name: {} is watching started", self.source.name);
+        let watching_delay = Duration::from_millis(self.source.delay);
 
         loop {
             match self.next_event() {
                 Ok(WatchEvent::NewLine(line)) => {
                     if line.is_empty() { continue; }
 
-                    self.sender.send(&self.source.name, &line);
+                    self.sender.send(LogData::new(&self.source.name, &line));
                 },
-                Ok(WatchEvent::Rotated) => { self.handle_rotate()?; },
-                Ok(WatchEvent::EndOfFile) => { thread::sleep(Duration::from_millis(WATCH_DELAY_MS)); }
+                Ok(WatchEvent::Rotated) => self.handle_rotate()?,
+                Ok(WatchEvent::EndOfFile) => thread::sleep(watching_delay),
                 Err(e) => match e {
                     WatchError::Recoverable(e) => {
                         warn!("{e}");
-                        thread::sleep(Duration::from_millis(WATCH_DELAY_MS));
+                        thread::sleep(watching_delay);
                         continue;
                     },
                     WatchError::UnRecoverable(e) => {
