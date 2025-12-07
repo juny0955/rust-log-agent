@@ -1,2 +1,3 @@
 pub mod log_sender;
-mod http_sender_strategy;
+pub mod log_data;
+mod http;
