@@ -1,4 +1,4 @@
-pub enum WatchEvent {
+pub enum DetectEvent {
     NewLine(String),
     Rotated,
     EndOfFile,

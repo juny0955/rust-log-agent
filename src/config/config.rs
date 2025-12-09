@@ -67,6 +67,10 @@ fn valid_config(config: &Config) -> Result<(), ConfigError> {
         return Err(ConfigError::RetryIsUnderOne);
     }
 
+    if config.global.channel_bound < 1 {
+        return Err(ConfigError::ChannelBoundIsUnderOne)
+    }
+
     let mut set = HashSet::new();
     for s in &config.sources {
         if !set.insert(&s.name) {
