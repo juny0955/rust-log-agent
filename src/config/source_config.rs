@@ -6,7 +6,7 @@ pub struct SourceConfig {
     pub log_path: String,
 
     #[serde(default = "default_delay_ms")]
-    pub delay: u64,
+    pub delay_ms: u64,
 }
 
 fn default_delay_ms() -> u64 { 500 }

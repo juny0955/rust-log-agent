@@ -1,23 +1,23 @@
 use crate::config::source_config::SourceConfig;
-use crate::sender::log_data::LogData;
 use crate::detector::detect_error::DetectError;
 use crate::detector::detect_event::DetectEvent;
+use crate::sender::log_data::LogData;
 use std::fs::{metadata, File};
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
-use std::sync::mpsc::SyncSender;
 use std::thread;
 use std::time::Duration;
+use tokio::sync::mpsc::Sender;
 use tracing::{error, info, trace, warn};
 
 pub struct Detector {
     source: SourceConfig,
     current_len: u64,
     reader: BufReader<File>,
-    tx: SyncSender<LogData>,
+    tx: Sender<LogData>,
 }
 
 impl Detector {
-    pub fn build(source: SourceConfig, tx: SyncSender<LogData>) -> Result<Self, DetectError> {
+    pub fn build(source: SourceConfig, tx: Sender<LogData>) -> Result<Self, DetectError> {
         let (reader, current_len) = Self::open_reader_at_end(&source.log_path)?;
 
         Ok(Self { source, current_len, reader, tx })
@@ -25,7 +25,7 @@ impl Detector {
 
     pub fn detect(&mut self) -> Result<(), DetectError> {
         info!("name: {} started detecting ", self.source.name);
-        let watching_delay = Duration::from_millis(self.source.delay);
+        let watching_delay = Duration::from_millis(self.source.delay_ms);
 
         loop {
             match self.next_event() {
@@ -48,9 +48,10 @@ impl Detector {
 
     fn handle_newline(&self, line: &str) -> Result<(), DetectError> {
         if line.is_empty() { return Ok(()); }
+        let log_data = LogData::new(&self.source.name, &line);
 
         trace!("detected new line on name: {}", &self.source.name);
-        if let Err(e) = self.tx.send(LogData::new(&self.source.name, &line)) {
+        if let Err(e) = self.tx.blocking_send(log_data) {
             error!("send err please restart process. {e}");
             return Err(DetectError::ChannelClosed);
         }

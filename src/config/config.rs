@@ -31,10 +31,7 @@ pub fn load_config() -> Result<Vec<SourceConfig>, ConfigError> {
 }
 
 pub fn global_config() -> &'static GlobalConfig {
-    GLOBAL_CONFIG.get().unwrap_or_else(|| {
-        error!("global config is not initialized");
-        process::exit(1);
-    })
+    GLOBAL_CONFIG.get().expect("global config is not initialized")
 }
 
 fn parse_config_from_toml(content: &str) -> Result<Config, ConfigError> {
@@ -89,12 +86,13 @@ fn print_config(sources: &[SourceConfig]) {
     info!("\t* EndPoint: {}", global.end_point);
     info!("\t* SendType: {:?}", global.send_type);
     info!("\t* Retry: {}", global.retry);
-    info!("\t* Retry_Delay: {}ms", global.retry_delay_ms);
+    info!("\t* Retry Delay: {}ms", global.retry_delay_ms);
+    info!("\t* Channel Bound: {}", global.channel_bound);
     info!("Sources ({}):", sources.len());
     sources.iter().enumerate().for_each(|(i, s)| {
         info!("\t{}. {}", i+1, s.name);
         info!("\t\t* Path: {}", s.log_path);
-        info!("\t\t* Delay: {}ms", s.delay);
+        info!("\t\t* Delay: {}ms", s.delay_ms);
     });
     info!("----------------------------------");
 }

@@ -21,9 +21,9 @@ impl From<StatusCode> for HttpError {
     fn from(value: StatusCode) -> Self {
         // only server error do retry
         if value.is_server_error() {
-            HttpError::Retryable("{value}".to_string())
+            HttpError::Retryable(format!("{value}"))
         } else {
-            HttpError::NonRetryable("{value}".to_string())
+            HttpError::NonRetryable(format!("{value}"))
         }
     }
 }

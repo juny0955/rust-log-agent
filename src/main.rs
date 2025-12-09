@@ -5,22 +5,23 @@ use crate::detector::detector::Detector;
 use crate::sender::log_data::LogData;
 use crate::sender::log_sender::build_sender;
 use std::process::ExitCode;
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, SyncSender};
-use std::thread::JoinHandle;
-use std::{io, thread};
+use std::{io};
+use task::{spawn_blocking, JoinHandle};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::task;
 use tracing::{error, info};
 
 mod detector;
 mod sender;
 mod config;
 
-fn main() -> ExitCode {
+#[tokio::main]
+async fn main() -> ExitCode {
     tracing_subscriber::fmt()
         .with_target(false)
         .init();
 
-    match run() {
+    match run().await {
         Ok(()) => ExitCode::SUCCESS,
         Err(_) => {
             println!("Press Enter to exit..");
@@ -30,7 +31,7 @@ fn main() -> ExitCode {
     }
 }
 
-fn run() -> Result<(), ExitCode> {
+async fn run() -> Result<(), ExitCode> {
     info!("log-agent started");
 
     let sources = load_config()
@@ -39,48 +40,44 @@ fn run() -> Result<(), ExitCode> {
             ExitCode::from(1)
         })?;
 
-    let (tx, rx) = mpsc::sync_channel::<LogData>(global_config().channel_bound);
+    let (tx, rx) = channel::<LogData>(global_config().channel_bound);
     let sender_worker_handle = start_sender_worker(rx);
-    let detector_worker_handles = start_watcher_worker(tx, sources)
+    start_detector_worker(tx, sources)
         .map_err(|e| {
             error!("Failed to build detector: {e}");
             ExitCode::from(1)
         })?;
 
-    for handle in detector_worker_handles {
-        handle.join().unwrap();
-    }
-
-    sender_worker_handle.join().unwrap();
+    sender_worker_handle.await
+        .map_err(|e| {
+            error!("Sender worker failed: {e:?}");
+            ExitCode::from(1)
+        })?;
 
     Ok(())
 }
 
-fn start_sender_worker(rx: Receiver<LogData>) -> JoinHandle<()> {
+fn start_sender_worker(mut rx: Receiver<LogData>) -> JoinHandle<()> {
     let sender = build_sender();
 
-    thread::spawn(move || {
-        for log_data in rx {
-            sender.send(log_data);
+    tokio::spawn(async move {
+        while let Some(log_data) = rx.recv().await {
+            sender.send(log_data).await;
         }
     })
 }
 
-fn start_watcher_worker(tx: SyncSender<LogData>, sources: Vec<SourceConfig>) -> Result<Vec<JoinHandle<()>>, DetectError> {
-    let mut handles: Vec<JoinHandle<()>> = Vec::new();
-
+fn start_detector_worker(tx: Sender<LogData>, sources: Vec<SourceConfig>) -> Result<(), DetectError> {
     for source in sources {
         let tx_clone = tx.clone();
         let mut detector = Detector::build(source, tx_clone)?;
 
-        let handle = thread::spawn(move || {
+        let _ = spawn_blocking(move || {
             if let Err(e) = detector.detect() {
                 error!("detect error: {e}");
             }
         });
-
-        handles.push(handle);
     }
 
-    Ok(handles)
+    Ok(())
 }
