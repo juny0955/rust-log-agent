@@ -28,7 +28,7 @@ channel_bound = 2048
 | `send_type`      | String | Transmission type (`HTTP`, more planned)    | -       | ✅        |
 | `retry`          | u32    | Retry count on request error                | `3`     | ❌        |
 | `retry_delay_ms` | u64    | Delay (ms) between retries                  | `100`   | ❌        |
-| `channel_bound   | usize  | Buffer size for the detector's sync channel | `1024`  | ❌        |
+| `channel_bound`  | usize  | Buffer size for the detector's sync channel | `1024`  | ❌        |
 
 ### Source Config 
 ```toml

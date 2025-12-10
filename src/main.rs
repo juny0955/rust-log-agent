@@ -1,14 +1,17 @@
-use crate::config::config::{global_config, load_config};
-use crate::config::source_config::SourceConfig;
-use crate::detector::detect_error::DetectError;
-use crate::detector::detector::Detector;
-use crate::sender::log_data::LogData;
-use crate::sender::log_sender::build_sender;
-use std::process::ExitCode;
-use std::{io};
+use crate::{
+    config::SourceConfig,
+    config::{global_config, load_config},
+    detector::DetectError,
+    detector::Detector,
+    sender::build_sender,
+    sender::LogData
+};
+use std::{io, process::ExitCode};
 use task::{spawn_blocking, JoinHandle};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::task;
+use tokio::{
+    sync::mpsc::{channel, Receiver, Sender},
+    task
+};
 use tracing::{error, info};
 
 mod detector;
@@ -72,7 +75,7 @@ fn start_detector_worker(tx: Sender<LogData>, sources: Vec<SourceConfig>) -> Res
         let tx_clone = tx.clone();
         let mut detector = Detector::build(source, tx_clone)?;
 
-        let _ = spawn_blocking(move || {
+        spawn_blocking(move || {
             if let Err(e) = detector.detect() {
                 error!("detect error: {e}");
             }

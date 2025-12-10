@@ -1,12 +1,12 @@
-use crate::config::config::global_config;
-use crate::sender::http::http_error::HttpError;
-use crate::sender::log_data::LogData;
-use crate::sender::log_sender::LogSender;
+use crate::{config::global_config, sender::LogData, sender::Sender};
 use async_trait::async_trait;
 use reqwest::Client;
 use std::time::Duration;
 use tokio::time;
 use tracing::{debug, error, warn};
+
+mod http_error;
+use self::http_error::HttpError;
 
 pub struct HttpSenderStrategy {
     client: Client,
@@ -38,7 +38,7 @@ impl HttpSenderStrategy {
 }
 
 #[async_trait]
-impl LogSender for HttpSenderStrategy {
+impl Sender for HttpSenderStrategy {
     async fn send(&self, log_data: LogData) {
         let global_config = global_config();
         let endpoint = &global_config.end_point;
@@ -47,8 +47,14 @@ impl LogSender for HttpSenderStrategy {
 
         for attempt in 1..=max_retry {
             match self.try_send(endpoint, &log_data).await {
-                Ok(()) => debug!("{} send success. on attempt: {attempt}/{max_retry}", log_data.name),
-                Err(HttpError::NonRetryable(e)) => error!("{} send failed(non-retry): {e}", log_data.name),
+                Ok(()) => {
+                    debug!("{} send success. on attempt: {attempt}/{max_retry}", log_data.name);
+                    return;
+                },
+                Err(HttpError::NonRetryable(e)) => {
+                    error!("{} send failed(non-retry): {e}", log_data.name);
+                    return;
+                },
                 Err(HttpError::Retryable(e)) => {
                     if attempt == max_retry {
                         error!("{} send failed after {max_retry} msg: {e}", log_data.name);
