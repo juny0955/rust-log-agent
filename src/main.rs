@@ -7,10 +7,9 @@ use crate::{
     sender::LogData
 };
 use std::{io, process::ExitCode};
-use task::{spawn_blocking, JoinHandle};
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
-    task
+    task::{spawn_blocking, JoinHandle},
 };
 use tracing::{error, info};
 
@@ -44,14 +43,15 @@ async fn run() -> Result<(), ExitCode> {
         })?;
 
     let (tx, rx) = channel::<LogData>(global_config().channel_bound);
-    let sender_worker_handle = start_sender_worker(rx);
+    let sender_worker_handle = start_sender_worker(rx).await;
     start_detector_worker(tx, sources)
         .map_err(|e| {
             error!("Failed to build detector: {e}");
             ExitCode::from(1)
         })?;
 
-    sender_worker_handle.await
+    sender_worker_handle
+        .await
         .map_err(|e| {
             error!("Sender worker failed: {e:?}");
             ExitCode::from(1)
@@ -60,12 +60,12 @@ async fn run() -> Result<(), ExitCode> {
     Ok(())
 }
 
-fn start_sender_worker(mut rx: Receiver<LogData>) -> JoinHandle<()> {
-    let sender = build_sender();
+async fn start_sender_worker(mut rx: Receiver<LogData>) -> JoinHandle<()> {
+    let mut sender = build_sender().await;
 
     tokio::spawn(async move {
         while let Some(log_data) = rx.recv().await {
-            sender.send(log_data).await;
+             sender.send(log_data).await;
         }
     })
 }

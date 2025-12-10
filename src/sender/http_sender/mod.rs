@@ -39,7 +39,7 @@ impl HttpSenderStrategy {
 
 #[async_trait]
 impl Sender for HttpSenderStrategy {
-    async fn send(&self, log_data: LogData) {
+    async fn send(&mut self, log_data: LogData) {
         let global_config = global_config();
         let endpoint = &global_config.end_point;
         let max_retry = global_config.retry;

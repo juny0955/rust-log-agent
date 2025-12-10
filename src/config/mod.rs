@@ -59,12 +59,19 @@ fn parse_config() -> Result<Config, ConfigError> {
 }
 
 fn valid_config(config: &Config) -> Result<(), ConfigError> {
-    if matches!(config.global.send_type, SendType::HTTP) {
-        let url = Url::parse(&config.global.end_point)
-            .map_err(|_| ConfigError::InvalidEndPoint(config.global.end_point.clone()))?;
-
-        if url.scheme() != "http" && url.scheme() != "https" {
-            return Err(ConfigError::InvalidEndPoint(config.global.end_point.clone()))
+    let url = Url::parse(&config.global.end_point)
+        .map_err(|_| ConfigError::InvalidEndPoint(config.global.end_point.clone()))?;
+    
+    match config.global.send_type {
+        SendType::HTTP => {
+            if url.scheme() != "http" && url.scheme() != "https" {
+                return Err(ConfigError::InvalidEndPoint(config.global.end_point.clone()))
+            }
+        },
+        SendType::WS => {
+            if url.scheme() != "ws" && url.scheme() != "wss" {
+                return Err(ConfigError::InvalidEndPoint(config.global.end_point.clone()))
+            }
         }
     }
 

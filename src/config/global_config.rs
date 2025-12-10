@@ -3,6 +3,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub enum SendType {
     HTTP,
+    WS,
 }
 
 #[derive(Debug, Deserialize)]
