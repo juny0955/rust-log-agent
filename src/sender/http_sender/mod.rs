@@ -13,7 +13,7 @@ pub struct HttpSenderStrategy {
 }
 
 impl HttpSenderStrategy {
-    pub fn new() -> Self {
+    pub fn build() -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
