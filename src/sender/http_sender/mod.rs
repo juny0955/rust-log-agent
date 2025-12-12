@@ -48,20 +48,20 @@ impl Sender for HttpSenderStrategy {
         for attempt in 1..=max_retry {
             match self.try_send(endpoint, &log_data).await {
                 Ok(()) => {
-                    debug!("{} send success. on attempt: {attempt}/{max_retry}", log_data.name);
+                    debug!("[{}] send success. on attempt: {attempt}/{max_retry}", log_data.name);
                     return;
                 },
                 Err(HttpError::NonRetryable(e)) => {
-                    error!("{} send failed(non-retry): {e}", log_data.name);
+                    error!("[{}] send failed(non-retry): {e}", log_data.name);
                     return;
                 },
                 Err(HttpError::Retryable(e)) => {
                     if attempt == max_retry {
-                        error!("{} send failed after {max_retry} msg: {e}", log_data.name);
+                        error!("[{}] send failed after {max_retry} msg: {e}", log_data.name);
                         return;
                     }
 
-                    warn!("{} send failed: {e}, retry...{attempt}/{max_retry}", log_data.name);
+                    warn!("[{}] send failed: {e}, retry...{attempt}/{max_retry}", log_data.name);
                     time::sleep(retry_delay).await;
                 },
             }

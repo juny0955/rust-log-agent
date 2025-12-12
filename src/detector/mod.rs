@@ -64,6 +64,7 @@ impl Detector {
     }
 
     fn handle_rotate(&mut self) -> Result<(), DetectError> {
+        info!("name: {}, path: {} is rotated", self.source.name, self.source.log_path);
         let (reader, current_len) = Self::open_reader_at_end(&self.source.log_path)?;
 
         self.reader = reader;

@@ -2,6 +2,7 @@ use tokio_tungstenite::tungstenite::Error;
 use crate::sender::ws_sender::ws_error::WsError::{NonRetryable, Retryable};
 
 pub enum WsError {
+    ReConnectable(String),
     Retryable(String),
     NonRetryable(String),
 }
@@ -16,7 +17,7 @@ impl From<Error> for WsError {
                     return Retryable(format!("status: {status}"))
                 }
 
-                NonRetryable(format!(""))
+                NonRetryable(format!("status: {status}"))
             }
             other => NonRetryable(format!("{other}"))
         }

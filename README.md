@@ -7,8 +7,20 @@ Detecting multiple log files to send central server
 - TOML-based Configuration
 - Strategy pattern for transmission 
   - Now Support: HTTP, WebSocket
-  - Planned: WebSocket or else..
+  - Planned: MQ, Kafka or else..
 
+## 
+```
+@startuml
+actor OS
+OS -> Watcher : append log
+Watcher -> Parser : new line
+Parser -> Buffer : LogData
+Buffer -> Sender : dequeue
+Sender -> LogServer : HTTP / WS
+@enduml
+
+```
 ## Configuration
 config file name: `log-agent.config`
 

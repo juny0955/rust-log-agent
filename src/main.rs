@@ -43,7 +43,10 @@ async fn run() -> Result<(), ExitCode> {
         })?;
 
     let (tx, rx) = channel::<LogData>(global_config().channel_bound);
-    let sender_worker_handle = start_sender_worker(rx).await;
+    let sender_worker_handle = start_sender_worker(rx).await.map_err(|e| {
+        ExitCode::from(1)
+    })?;
+
     start_detector_worker(tx, sources)
         .map_err(|e| {
             error!("Failed to build detector: {e}");
@@ -60,14 +63,14 @@ async fn run() -> Result<(), ExitCode> {
     Ok(())
 }
 
-async fn start_sender_worker(mut rx: Receiver<LogData>) -> JoinHandle<()> {
-    let mut sender = build_sender().await;
+async fn start_sender_worker(mut rx: Receiver<LogData>) -> Result<JoinHandle<()>, String> {
+    let mut sender = build_sender().await?;
 
-    tokio::spawn(async move {
+    Ok(tokio::spawn(async move {
         while let Some(log_data) = rx.recv().await {
              sender.send(log_data).await;
         }
-    })
+    }))
 }
 
 fn start_detector_worker(tx: Sender<LogData>, sources: Vec<SourceConfig>) -> Result<(), DetectError> {
