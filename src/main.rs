@@ -1,83 +1,62 @@
-use crate::config::config::{global_config, load_config};
-use crate::config::source_config::SourceConfig;
-use crate::detector::detect_error::DetectError;
-use crate::detector::detector::Detector;
-use crate::sender::log_data::LogData;
-use crate::sender::log_sender::build_sender;
-use std::process::ExitCode;
-use std::{io};
-use task::{spawn_blocking, JoinHandle};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::task;
-use tracing::{error, info};
+use crate::{
+    config::{global_config, load_config},
+    log_event::LogEvent,
+    sender::payload::Payload,
+};
+use tokio::sync::mpsc;
+use tracing::error;
 
-mod detector;
-mod sender;
 mod config;
+mod detector;
+mod event_bucket;
+mod log_event;
+mod sender;
 
 #[tokio::main]
-async fn main() -> ExitCode {
-    tracing_subscriber::fmt()
-        .with_target(false)
-        .init();
+async fn main() {
+    tracing_subscriber::fmt().with_target(false).init();
 
-    match run().await {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(_) => {
-            println!("Press Enter to exit..");
-            let _ = io::stdin().read_line(&mut String::new());
-            ExitCode::from(1)
-        }
-    }
-}
-
-async fn run() -> Result<(), ExitCode> {
-    info!("log-agent started");
-
-    let sources = load_config()
-        .map_err(|e| {
+    // load configuration
+    let sources = match load_config() {
+        Ok(sources) => sources,
+        Err(e) => {
             error!("{e}");
-            ExitCode::from(1)
-        })?;
-
-    let (tx, rx) = channel::<LogData>(global_config().channel_bound);
-    let sender_worker_handle = start_sender_worker(rx);
-    start_detector_worker(tx, sources)
-        .map_err(|e| {
-            error!("Failed to build detector: {e}");
-            ExitCode::from(1)
-        })?;
-
-    sender_worker_handle.await
-        .map_err(|e| {
-            error!("Sender worker failed: {e:?}");
-            ExitCode::from(1)
-        })?;
-
-    Ok(())
-}
-
-fn start_sender_worker(mut rx: Receiver<LogData>) -> JoinHandle<()> {
-    let sender = build_sender();
-
-    tokio::spawn(async move {
-        while let Some(log_data) = rx.recv().await {
-            sender.send(log_data).await;
+            return;
         }
-    })
-}
+    };
 
-fn start_detector_worker(tx: Sender<LogData>, sources: Vec<SourceConfig>) -> Result<(), DetectError> {
-    for source in sources {
-        let tx_clone = tx.clone();
-        let mut detector = Detector::build(source, tx_clone)?;
+    // create mpsc
+    let channel_bound = global_config().channel_bound;
 
-        let _ = spawn_blocking(move || {
-            if let Err(e) = detector.detect() {
-                error!("detect error: {e}");
-            }
-        });
+    // detector -> aggregator
+    let (event_sender, event_receiver) = mpsc::channel::<LogEvent>(channel_bound);
+    // aggregator -> sender
+    let (payload_sender, payload_receiver) = mpsc::channel::<Payload>(channel_bound);
+
+    let detector_handles = match detector::spawn_detectors(event_sender, sources) {
+        Ok(hs) => hs,
+        Err(e) => {
+            error!("{e}");
+            return;
+        }
+    };
+
+    let aggregator_handle = event_bucket::spawn_event_aggregator(event_receiver, payload_sender);
+
+    let sender_handle = match sender::spawn_sender(payload_receiver).await {
+        Ok(h) => h,
+        Err(e) => {
+            error!("{e}");
+            return;
+        }
+    };
+
+    for detector_handle in detector_handles {
+        let _ = detector_handle.join();
     }
 
-    Ok(())
+    let _ = aggregator_handle.await;
+    let _ = sender_handle.await;
+
+    error!("Detectors All Closed Process Exit..");
 }

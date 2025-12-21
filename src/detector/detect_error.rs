@@ -1,22 +1,29 @@
-use error::Error;
 use std::fmt::{Display, Formatter};
+use std::io;
 use std::io::ErrorKind;
-use std::{error, io};
+use tokio::sync::mpsc;
+
+use crate::log_event::LogEvent;
 
 #[derive(Debug)]
 pub enum DetectError {
     Recoverable(io::Error),
     UnRecoverable(io::Error),
-    ChannelClosed,
+    ChannelClosed(mpsc::error::SendError<LogEvent>),
 }
-impl Error for DetectError {}
 
-impl DetectError {
-   pub fn from_io_error(error: io::Error) -> Self {
-        match error.kind() {
-            ErrorKind::Interrupted | ErrorKind::WouldBlock => DetectError::Recoverable(error),
-            _ => DetectError::UnRecoverable(error),
+impl From<io::Error> for DetectError {
+    fn from(value: io::Error) -> Self {
+        match value.kind() {
+            ErrorKind::Interrupted | ErrorKind::WouldBlock => DetectError::Recoverable(value),
+            _ => DetectError::UnRecoverable(value),
         }
+    }
+}
+
+impl From<mpsc::error::SendError<LogEvent>> for DetectError {
+    fn from(value: mpsc::error::SendError<LogEvent>) -> Self {
+        DetectError::ChannelClosed(value)
     }
 }
 
@@ -25,7 +32,7 @@ impl Display for DetectError {
         match self {
             DetectError::Recoverable(e) => write!(f, "{e}"),
             DetectError::UnRecoverable(e) => write!(f, "{e}"),
-            DetectError::ChannelClosed => write!(f, "receiver channel closed"),
+            DetectError::ChannelClosed(e) => write!(f, "receiver channel closed: {e}"),
         }
     }
 }
@@ -37,7 +44,7 @@ mod tests {
     #[test]
     fn interrupted_is_recoverable() {
         let io_error = io::Error::new(ErrorKind::Interrupted, "test interrupted");
-        let watch_error = DetectError::from_io_error(io_error);
+        let watch_error = DetectError::from(io_error);
 
         assert!(matches!(watch_error, DetectError::Recoverable(_)));
     }
@@ -45,15 +52,15 @@ mod tests {
     #[test]
     fn would_block_is_recoverable() {
         let io_error = io::Error::new(ErrorKind::WouldBlock, "test would block");
-        let watch_error = DetectError::from_io_error(io_error);
+        let watch_error = DetectError::from(io_error);
 
         assert!(matches!(watch_error, DetectError::Recoverable(_)));
     }
 
     #[test]
-    fn not_fount_is_unrecoverable() {
+    fn not_found_is_unrecoverable() {
         let io_error = io::Error::new(ErrorKind::NotFound, "test not found");
-        let watch_error = DetectError::from_io_error(io_error);
+        let watch_error = DetectError::from(io_error);
 
         assert!(matches!(watch_error, DetectError::UnRecoverable(_)));
     }
