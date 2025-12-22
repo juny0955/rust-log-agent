@@ -8,11 +8,11 @@ use std::{
 use tokio::sync::mpsc::Sender;
 use tracing::{error, info, trace, warn};
 
-pub mod detect_error;
-pub use detect_error::DetectError;
+pub mod error;
+pub use error::DetectError;
 
-mod detect_event;
-use detect_event::DetectEvent;
+mod event;
+use event::DetectEvent;
 
 pub struct Detector {
     source: SourceConfig,
@@ -62,13 +62,10 @@ impl Detector {
     }
 
     fn handle_newline(&self, log: String) -> Result<(), DetectError> {
-        if log.is_empty() {
-            return Ok(());
-        }
+        if log.is_empty() { return Ok(()); }
         trace!("[{}] detected new line", &self.source.name);
 
-        self.event_sender
-            .blocking_send(LogEvent::new(self.source.name.clone(), log))?;
+        self.event_sender.blocking_send(LogEvent::new(self.source.name.clone(), log))?;
 
         Ok(())
     }
@@ -121,13 +118,17 @@ pub fn spawn_detectors(event_sender: Sender<LogEvent>, sources: Vec<SourceConfig
     let mut detector_handles: Vec<thread::JoinHandle<()>> = Vec::new();
 
     for source in sources {
-        let mut detector = Detector::build(source, event_sender.clone())?;
+        let thread_name = format!("detector-thread-{}", source.name);
+        let event_sender = event_sender.clone();
+        let mut detector = Detector::build(source, event_sender)?;
 
-        let detector_handle = thread::spawn(move || {
-            if let Err(e) = detector.detect() {
-                error!("Detecting error: {e}");
-            }
-        });
+        let detector_handle = thread::Builder::new()
+            .name(thread_name)
+            .spawn(move || {
+                if let Err(e) = detector.detect() {
+                    error!("Detecting error: {e}");
+                }
+            })?;
 
         detector_handles.push(detector_handle);
     }

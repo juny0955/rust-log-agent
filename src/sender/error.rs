@@ -2,13 +2,13 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub enum SenderError {
-    HttpClientBuildError(reqwest::Error),
+    SenderFailedBuild(reqwest::Error),
     SerializedError(serde_json::Error),
 }
 
 impl From<reqwest::Error> for SenderError {
     fn from(value: reqwest::Error) -> Self {
-        SenderError::HttpClientBuildError(value)
+        SenderError::SenderFailedBuild(value)
     }
 }
 
@@ -21,7 +21,7 @@ impl From<serde_json::Error> for SenderError {
 impl Display for SenderError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            SenderError::HttpClientBuildError(e) => write!(f, "Failed to build HTTP client: {e}"),
+            SenderError::SenderFailedBuild(e) => write!(f, "Failed to build sender: {e}"),
             SenderError::SerializedError(e) => write!(f, "Cannot serialized data: {e}"),
         }
     }

@@ -56,10 +56,7 @@ impl EventBucket {
     }
 }
 
-pub fn spawn_event_aggregator(
-    mut event_receiver: Receiver<LogEvent>,
-    payload_sender: Sender<Payload>,
-) -> task::JoinHandle<()> {
+pub fn spawn_event_aggregator(mut event_receiver: Receiver<LogEvent>, payload_sender: Sender<Payload>) -> task::JoinHandle<()> {
     let mut event_bucket = EventBucket::new();
 
     let interval = Duration::from_secs(global_config().interval_secs);

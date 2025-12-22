@@ -15,7 +15,7 @@ pub struct GlobalConfig {
     pub max_send_task: u8,
 
     #[serde(default = "default_retry_count")]
-    pub retry_count: u32,
+    pub retry_count: u8,
 
     #[serde(default = "default_retry_delay_ms")]
     pub retry_delay_ms: u64,
@@ -31,9 +31,7 @@ pub struct GlobalConfig {
 }
 
 fn default_max_send_task() -> u8 { 5 }
-fn default_retry_count() -> u32 {
-    3
-}
+fn default_retry_count() -> u8 { 3 }
 fn default_retry_delay_ms() -> u64 {
     100
 }
