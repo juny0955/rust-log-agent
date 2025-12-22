@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 use tokio::sync::mpsc::Sender;
-use tracing::{error, info, trace, warn};
+use tracing::{error, info, info_span, trace, warn, Instrument};
 
 pub mod error;
 pub use error::DetectError;
@@ -121,13 +121,17 @@ pub fn spawn_detectors(event_sender: Sender<LogEvent>, sources: Vec<SourceConfig
     let mut detector_handles: Vec<thread::JoinHandle<()>> = Vec::new();
 
     for source in sources {
-        let mut detector = Detector::build(source, event_sender.clone())?;
+        let thread_name = format!("detector-{}", source.name);
+        let event_sender = event_sender.clone();
+        let mut detector = Detector::build(source, event_sender)?;
 
-        let detector_handle = thread::spawn(move || {
-            if let Err(e) = detector.detect() {
-                error!("Detecting error: {e}");
-            }
-        });
+        let detector_handle = thread::Builder::new()
+            .name(thread_name)
+            .spawn(move || {
+                if let Err(e) = detector.detect() {
+                    error!("Detecting error: {e}");
+                }
+            })?;
 
         detector_handles.push(detector_handle);
     }

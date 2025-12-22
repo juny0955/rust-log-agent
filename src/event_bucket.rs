@@ -7,6 +7,7 @@ use crate::{
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task;
+use tracing::Instrument;
 
 pub struct EventBucket {
     bucket: HashMap<String, Vec<Logs>>,
@@ -56,10 +57,7 @@ impl EventBucket {
     }
 }
 
-pub fn spawn_event_aggregator(
-    mut event_receiver: Receiver<LogEvent>,
-    payload_sender: Sender<Payload>,
-) -> task::JoinHandle<()> {
+pub fn spawn_event_aggregator(mut event_receiver: Receiver<LogEvent>, payload_sender: Sender<Payload>) -> task::JoinHandle<()> {
     let mut event_bucket = EventBucket::new();
 
     let interval = Duration::from_secs(global_config().interval_secs);
