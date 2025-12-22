@@ -7,10 +7,10 @@ use tokio::sync::mpsc;
 use tracing::error;
 
 mod config;
-mod detector;
 mod event_bucket;
 mod log_event;
 mod sender;
+mod detector;
 
 #[tokio::main]
 async fn main() {
@@ -25,8 +25,10 @@ async fn main() {
         }
     };
 
+    let global_config = global_config();
+    
     // create mpsc
-    let channel_bound = global_config().channel_bound;
+    let channel_bound = global_config.channel_bound;
 
     // detector -> aggregator
     let (event_sender, event_receiver) = mpsc::channel::<LogEvent>(channel_bound);
@@ -43,7 +45,7 @@ async fn main() {
 
     let aggregator_handle = event_bucket::spawn_event_aggregator(event_receiver, payload_sender);
 
-    let sender_handle = match sender::spawn_sender(payload_receiver).await {
+    let sender_handle = match sender::spawn_sender(global_config, payload_receiver).await {
         Ok(h) => h,
         Err(e) => {
             error!("{e}");

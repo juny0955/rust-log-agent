@@ -8,11 +8,11 @@ use std::{
 use tokio::sync::mpsc::Sender;
 use tracing::{error, info, trace, warn};
 
-pub mod detect_error;
-pub use detect_error::DetectError;
+pub mod error;
+pub use error::DetectError;
 
-mod detect_event;
-use detect_event::DetectEvent;
+mod event;
+use event::DetectEvent;
 
 pub struct Detector {
     source: SourceConfig,

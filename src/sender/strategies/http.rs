@@ -1,6 +1,7 @@
+use crate::config::GlobalConfig;
 use crate::sender::payload::Payload;
 use crate::sender::SenderError;
-use crate::{config::global_config, sender::Sender};
+use crate::sender::Sender;
 use async_trait::async_trait;
 use reqwest::Client;
 use std::time::Duration;
@@ -17,16 +18,14 @@ pub struct HttpSenderStrategy {
 }
 
 impl HttpSenderStrategy {
-    pub fn build() -> Result<Self, SenderError> {
-        let global_cfg = global_config();
-
+    pub fn build(global_config: &GlobalConfig) -> Result<Self, SenderError> {
         let client = Client::builder().timeout(Duration::from_secs(10)).build()?;
 
         Ok(Self {
             client,
-            endpoint: global_cfg.end_point.clone(),
-            max_retry: global_cfg.retry_count,
-            retry_delay: Duration::from_millis(global_cfg.retry_delay_ms),
+            endpoint: global_config.end_point.clone(),
+            max_retry: global_config.retry_count,
+            retry_delay: Duration::from_millis(global_config.retry_delay_ms),
         })
     }
 
@@ -46,17 +45,6 @@ impl HttpSenderStrategy {
 
 #[async_trait]
 impl Sender for HttpSenderStrategy {
-    // async fn send(&self, payload: &Payload) -> Result<(), HttpError> {
-    //     self.client
-    //         .post(&self.endpoint)
-    //         .json(payload)
-    //         .send()
-    //         .await?
-    //         .error_for_status()?;
-    // 
-    //     Ok(())
-    // }
-
     async fn send(&self, payload: &Payload) {
         for attempt in 1..=self.max_retry {
             match self.try_send(payload).await {
@@ -73,7 +61,7 @@ impl Sender for HttpSenderStrategy {
                         error!("HTTP send failed after {} retries: {e}", self.max_retry);
                         return;
                     }
-    
+
                     warn!("HTTP send failed (retryable): {e}. retry... {attempt}/{}", self.max_retry);
                     tokio::time::sleep(self.retry_delay).await;
                 }
