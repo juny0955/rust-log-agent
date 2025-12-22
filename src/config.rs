@@ -78,10 +78,15 @@ fn valid_config(config: &Config) -> Result<(), ConfigError> {
         return Err(ConfigError::ChannelBoundIsUnderOne);
     }
 
-    let mut set = HashSet::new();
-    for s in &config.sources {
-        if !set.insert(&s.name) {
-            return Err(ConfigError::DuplicateSourceName(s.name.to_string()));
+    let mut name_set = HashSet::new();
+    let mut path_set = HashSet::new();
+    for source in &config.sources {
+        if !name_set.insert(&source.name) {
+            return Err(ConfigError::DuplicateSourceName(source.name.to_string()));
+        }
+
+        if !path_set.insert(&source.log_path) {
+            return Err(ConfigError::DuplicateLogPath(source.log_path.to_string()));
         }
     }
 

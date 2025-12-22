@@ -25,7 +25,7 @@ pub fn spawn_sender(mut payload_receiver: Receiver<Payload>) -> Result<task::Joi
     let handle = tokio::spawn(async move {
         while let Some(payload) = payload_receiver.recv().await {
             let permit = match semaphore.clone().acquire_owned().await {
-                Ok(p) => p,
+                Ok(permit) => permit,
                 Err(_) => break,
             };
 

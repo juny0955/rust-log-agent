@@ -7,7 +7,6 @@ use crate::{
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task;
-use tracing::Instrument;
 
 pub struct EventBucket {
     bucket: HashMap<String, Vec<Logs>>,

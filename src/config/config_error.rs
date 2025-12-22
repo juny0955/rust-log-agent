@@ -11,6 +11,7 @@ pub enum ConfigError {
     RetryCountIsUnderOne,
     ChannelBoundIsUnderOne,
     DuplicateSourceName(String),
+    DuplicateLogPath(String),
 }
 
 impl From<toml::de::Error> for ConfigError {
@@ -35,7 +36,8 @@ impl Display for ConfigError {
             ConfigError::SendTaskIsUnderOne => write!(f, "send task is must be over 1"),
             ConfigError::RetryCountIsUnderOne => write!(f, "Retry count is must be over 1"),
             ConfigError::ChannelBoundIsUnderOne => write!(f, "Channel bound is must be over 1"),
-            ConfigError::DuplicateSourceName(name) => write!(f, "Duplicated source name in config: '{name}', source name is must be unique."),
+            ConfigError::DuplicateSourceName(name) => write!(f, "Duplicated source name in config: '{name}'"),
+            ConfigError::DuplicateLogPath(path) => write!(f, "Duplicated log file path in config: '{path}'")
         }
     }
 }

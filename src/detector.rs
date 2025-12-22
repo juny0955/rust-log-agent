@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 use tokio::sync::mpsc::Sender;
-use tracing::{error, info, info_span, trace, warn, Instrument};
+use tracing::{error, info, trace, warn};
 
 pub mod error;
 pub use error::DetectError;
@@ -62,13 +62,10 @@ impl Detector {
     }
 
     fn handle_newline(&self, log: String) -> Result<(), DetectError> {
-        if log.is_empty() {
-            return Ok(());
-        }
+        if log.is_empty() { return Ok(()); }
         trace!("[{}] detected new line", &self.source.name);
 
-        self.event_sender
-            .blocking_send(LogEvent::new(self.source.name.clone(), log))?;
+        self.event_sender.blocking_send(LogEvent::new(self.source.name.clone(), log))?;
 
         Ok(())
     }
@@ -121,7 +118,7 @@ pub fn spawn_detectors(event_sender: Sender<LogEvent>, sources: Vec<SourceConfig
     let mut detector_handles: Vec<thread::JoinHandle<()>> = Vec::new();
 
     for source in sources {
-        let thread_name = format!("detector-{}", source.name);
+        let thread_name = format!("detector-thread-{}", source.name);
         let event_sender = event_sender.clone();
         let mut detector = Detector::build(source, event_sender)?;
 
